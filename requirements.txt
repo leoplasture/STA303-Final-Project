@@ -1,6 +1,5 @@
-torch==2.4.1+cpu
+torch==2.4.1
 numpy>=1.26
 gymnasium[classic-control]>=0.29
-pygame>=2.5          # for human rendering on Windows/macOS/Linux
-matplotlib>=3.8      # for scores plotting
-tqdm>=4.66           # for progress bar
+pygame>=2.5          
+matplotlib>=3.8          

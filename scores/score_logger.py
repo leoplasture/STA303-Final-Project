@@ -21,7 +21,7 @@ SCORES_PNG_PATH = os.path.join(SCORES_DIR, "scores.png")
 SOLVED_CSV_PATH = os.path.join(SCORES_DIR, "solved.csv")
 SOLVED_PNG_PATH = os.path.join(SCORES_DIR, "solved.png")
 
-AVERAGE_SCORE_TO_SOLVE = 195
+AVERAGE_SCORE_TO_SOLVE = 475
 CONSECUTIVE_RUNS_TO_SOLVE = 100
 
 
@@ -49,7 +49,7 @@ class ScoreLogger:
             y_label="Scores",
             average_of_n_last=CONSECUTIVE_RUNS_TO_SOLVE,
             show_goal=True,
-            show_trend=True,
+            show_trend=True, 
             show_legend=True,
         )
 
@@ -71,7 +71,7 @@ class ScoreLogger:
                 show_trend=False,
                 show_legend=False,
             )
-            exit(0)
+            # exit(0) 
 
     def _save_png(self, input_path, output_path,
                   x_label, y_label,
@@ -102,16 +102,25 @@ class ScoreLogger:
             )
 
         if show_goal:
-            plt.plot(x, [AVERAGE_SCORE_TO_SOLVE] * len(x), linestyle=":", label="Goal (195 Avg)")
+            # plot the target score line
+            plt.plot(x, [AVERAGE_SCORE_TO_SOLVE] * len(x), linestyle=":", label=f"Goal ({AVERAGE_SCORE_TO_SOLVE} Avg)")
 
         if show_trend and len(x) > 1:
-            if len(x) > 2:
-                try:
-                    z = np.polyfit(np.array(x[1:]), np.array(y[1:]), 1)
-                    p = np.poly1d(z)
-                    plt.plot(x[1:], p(x[1:]), linestyle="-.", label="trend")
-                except np.RankWarning:
-                    pass
+            y_trend = []
+            current_block_scores = [] 
+            
+            y_np = np.array(y)
+            
+            for i in range(len(y_np)):
+                current_block_scores.append(y_np[i])
+                
+                current_avg = np.mean(current_block_scores)
+                y_trend.append(current_avg)
+                
+                if (i + 1) % 100 == 0:
+                    current_block_scores = []
+            
+            plt.plot(x, y_trend, linestyle="-.", label="Trend (100-ep Reset Avg)")
 
         plt.title(f"{self.env_name} - Training Progress")
         plt.xlabel(x_label)
