@@ -1,4 +1,4 @@
-""""
+""" "
 CartPole Training & Evaluation (PyTorch + Gymnasium)
 ---------------------------------------------------
 - Trains a DQN agent and logs scores via ScoreLogger (PNG + CSV)
@@ -70,7 +70,7 @@ def train(num_episodes: int = 200, terminal_penalty: bool = True) -> DQNSolver:
             # 3. Optional small terminal penalty (encourage agent to avoid failure)
             if terminal_penalty and done:
                 reward = -1.0
-            
+
             # 4. Reshape next_state for agent and next loop iteration
             next_state = np.reshape(next_state_raw, (1, obs_dim))
 
@@ -83,7 +83,9 @@ def train(num_episodes: int = 200, terminal_penalty: bool = True) -> DQNSolver:
 
             # 7. Episode end: log and break
             if done:
-                print(f"Run: {run}, Epsilon: {agent.exploration_rate:.3f}, Score: {steps}")
+                print(
+                    f"Run: {run}, Epsilon: {agent.exploration_rate:.3f}, Score: {steps}"
+                )
                 logger.add_score(steps, run)  # writes CSV + updates score PNG
                 break
 
@@ -94,11 +96,13 @@ def train(num_episodes: int = 200, terminal_penalty: bool = True) -> DQNSolver:
     return agent
 
 
-def evaluate(model_path: str | None = None,
-             algorithm: str = "dqn",
-             episodes: int = 5,
-             render: bool = True,
-             fps: int = 60):
+def evaluate(
+    model_path: str | None = None,
+    algorithm: str = "dqn",
+    episodes: int = 5,
+    render: bool = True,
+    fps: int = 60,
+):
     """
     Evaluate a trained agent in the environment using greedy policy (no ε).
     - Loads weights from disk
@@ -117,7 +121,9 @@ def evaluate(model_path: str | None = None,
     if model_path is None:
         candidates = [f for f in os.listdir(model_dir) if f.endswith(".torch")]
         if not candidates:
-            raise FileNotFoundError(f"No saved model found in '{model_dir}/'. Please train first.")
+            raise FileNotFoundError(
+                f"No saved model found in '{model_dir}/'. Please train first."
+            )
         model_path = os.path.join(model_dir, candidates[0])
         print(f"[Eval] Using detected model: {model_path}")
     else:
@@ -175,4 +181,10 @@ def evaluate(model_path: str | None = None,
 if __name__ == "__main__":
     # Example: quick training then a short evaluation
     agent = train(num_episodes=500, terminal_penalty=True)
-    evaluate(model_path="models/cartpole_dqn.torch", algorithm="dqn", episodes=100, render=False, fps=60)
+    evaluate(
+        model_path="models/cartpole_dqn.torch",
+        algorithm="dqn",
+        episodes=100,
+        render=False,
+        fps=60,
+    )
