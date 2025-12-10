@@ -1,7 +1,7 @@
 """
 CartPole Training & Evaluation (PyTorch + Gymnasium)
 ---------------------------------------------------
-- Trains a DQN/A2C/REINFORCE agent and logs scores via ScoreLogger (PNG + CSV)
+- Trains a DQN/A2C/REINFORCE/PPO agent and logs scores via ScoreLogger (PNG + CSV)
 - Supports command line arguments for hyperparameter tuning.
 """
 
@@ -20,10 +20,15 @@ import torch
 # 导入你的 Agent 和 Config
 from agents.cartpole_dqn import DQNSolver, DQNConfig
 from agents.a2c_agent import A2CAgent, A2CConfig
+<<<<<<< HEAD
 from agents.reinforce_agent import (
     ReinforceAgent,
     ReinforceConfig,
 )  # <--- [新增] 导入 REINFORCE
+=======
+from agents.reinforce_agent import ReinforceAgent, ReinforceConfig
+from agents.ppo_agent import PPOAgent, PPOConfig  # <--- [新增] 导入 PPO
+>>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
 from scores.score_logger import ScoreLogger
 
 ENV_NAME = "CartPole-v1"
@@ -46,9 +51,15 @@ def apply_overrides(cfg, args):
     if args.batch_size is not None and hasattr(cfg, "batch_size"):
         cfg.batch_size = args.batch_size
         print(f"[Override] Batch Size -> {cfg.batch_size}")
+<<<<<<< HEAD
 
     # 特殊处理：A2C/REINFORCE 的 entropy
     if args.entropy is not None and hasattr(cfg, "entropy_beta"):
+=======
+        
+    # 特殊处理：A2C/REINFORCE/PPO 的 entropy
+    if args.entropy is not None and hasattr(cfg, 'entropy_beta'):
+>>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
         cfg.entropy_beta = args.entropy
         print(f"[Override] Entropy Beta -> {cfg.entropy_beta}")
 
@@ -83,18 +94,28 @@ def train(
         cfg = A2CConfig()
         cfg = apply_overrides(cfg, args)  # 覆盖参数
         agent = A2CAgent(obs_dim, act_dim, cfg=cfg)
-    elif algorithm.lower() == "reinforce":  # <--- [新增] REINFORCE 分支
+    elif algorithm.lower() == "reinforce":
         print(f"[Info] Training with REINFORCE Agent...")
         cfg = ReinforceConfig()
         cfg = apply_overrides(cfg, args)
         agent = ReinforceAgent(obs_dim, act_dim, cfg=cfg)
+    elif algorithm.lower() == "ppo": # <--- [新增] PPO 分支
+        print(f"[Info] Training with PPO Agent...")
+        cfg = PPOConfig()
+        cfg = apply_overrides(cfg, args)
+        agent = PPOAgent(obs_dim, act_dim, cfg=cfg)
     else:
         print(f"[Info] Training with DQN Agent...")
         cfg = DQNConfig()
         cfg = apply_overrides(cfg, args)  # 覆盖参数
         agent = DQNSolver(obs_dim, act_dim, cfg=cfg)
+<<<<<<< HEAD
 
     # 安全获取 device 属性 (ReinforceAgent 可能直接存了 device)
+=======
+    
+    # 安全获取 device 属性
+>>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
     device = getattr(agent, "device", "unknown")
     print(f"[Info] Using device: {device}")
 
@@ -173,8 +194,14 @@ def evaluate(
         agent = DQNSolver(obs_dim, act_dim, cfg=DQNConfig())
     elif algorithm.lower() == "a2c":
         agent = A2CAgent(obs_dim, act_dim, cfg=A2CConfig())
+<<<<<<< HEAD
     elif algorithm.lower() == "reinforce":  # <--- [新增] REINFORCE
+=======
+    elif algorithm.lower() == "reinforce":
+>>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
         agent = ReinforceAgent(obs_dim, act_dim, cfg=ReinforceConfig())
+    elif algorithm.lower() == "ppo": # <--- [新增] PPO
+        agent = PPOAgent(obs_dim, act_dim, cfg=PPOConfig())
     else:
         raise ValueError(f"Unknown algorithm: {algorithm}")
 
@@ -212,6 +239,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="RL Parameter Tuning")
 
     # 基础参数
+<<<<<<< HEAD
     parser.add_argument(
         "--mode", type=str, default="train", choices=["train", "eval"], help="Run mode"
     )
@@ -223,6 +251,11 @@ if __name__ == "__main__":
         choices=["dqn", "a2c", "reinforce"],
         help="Algorithm",
     )
+=======
+    parser.add_argument("--mode", type=str, default="train", choices=["train", "eval"], help="Run mode")
+    # [修改] choices 加入 ppo
+    parser.add_argument("--algo", type=str, default="dqn", choices=["dqn", "a2c", "reinforce", "ppo"], help="Algorithm")
+>>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
     parser.add_argument("--episodes", type=int, default=200, help="Training episodes")
 
     # 关键超参数 (默认值为 None，表示使用 Config 文件中的默认值)
@@ -241,12 +274,17 @@ if __name__ == "__main__":
 
     if args.mode == "train":
         print(f"--- Starting Training ({args.algo.upper()}) ---")
+<<<<<<< HEAD
         train(
             num_episodes=args.episodes,
             terminal_penalty=True,
             algorithm=args.algo,
             args=args,
         )
+=======
+        train(num_episodes=args.episodes, terminal_penalty=True, algorithm=args.algo, args=args)
+        
+>>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
     else:
         print(f"--- Starting Evaluation ({args.algo.upper()}) ---")
         evaluate(algorithm=args.algo, episodes=10, render=True, fps=60)
