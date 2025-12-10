@@ -1,7 +1,7 @@
 """
 CartPole Training & Evaluation (PyTorch + Gymnasium)
 ---------------------------------------------------
-- Trains a DQN/A2C/REINFORCE agent and logs scores via ScoreLogger (PNG + CSV)
+- Trains a DQN/A2C/REINFORCE/PPO agent and logs scores via ScoreLogger (PNG + CSV)
 - Supports command line arguments for hyperparameter tuning.
 """
 
@@ -19,7 +19,8 @@ import torch
 # 导入你的 Agent 和 Config
 from agents.cartpole_dqn import DQNSolver, DQNConfig
 from agents.a2c_agent import A2CAgent, A2CConfig
-from agents.reinforce_agent import ReinforceAgent, ReinforceConfig  # <--- [新增] 导入 REINFORCE
+from agents.reinforce_agent import ReinforceAgent, ReinforceConfig
+from agents.ppo_agent import PPOAgent, PPOConfig  # <--- [新增] 导入 PPO
 from scores.score_logger import ScoreLogger
 
 ENV_NAME = "CartPole-v1"
@@ -42,7 +43,7 @@ def apply_overrides(cfg, args):
         cfg.batch_size = args.batch_size
         print(f"[Override] Batch Size -> {cfg.batch_size}")
         
-    # 特殊处理：A2C/REINFORCE 的 entropy
+    # 特殊处理：A2C/REINFORCE/PPO 的 entropy
     if args.entropy is not None and hasattr(cfg, 'entropy_beta'):
         cfg.entropy_beta = args.entropy
         print(f"[Override] Entropy Beta -> {cfg.entropy_beta}")
@@ -72,18 +73,23 @@ def train(num_episodes: int = 200, terminal_penalty: bool = True, algorithm: str
         cfg = A2CConfig()
         cfg = apply_overrides(cfg, args) # 覆盖参数
         agent = A2CAgent(obs_dim, act_dim, cfg=cfg)
-    elif algorithm.lower() == "reinforce":  # <--- [新增] REINFORCE 分支
+    elif algorithm.lower() == "reinforce":
         print(f"[Info] Training with REINFORCE Agent...")
         cfg = ReinforceConfig()
         cfg = apply_overrides(cfg, args)
         agent = ReinforceAgent(obs_dim, act_dim, cfg=cfg)
+    elif algorithm.lower() == "ppo": # <--- [新增] PPO 分支
+        print(f"[Info] Training with PPO Agent...")
+        cfg = PPOConfig()
+        cfg = apply_overrides(cfg, args)
+        agent = PPOAgent(obs_dim, act_dim, cfg=cfg)
     else:
         print(f"[Info] Training with DQN Agent...")
         cfg = DQNConfig()
         cfg = apply_overrides(cfg, args) # 覆盖参数
         agent = DQNSolver(obs_dim, act_dim, cfg=cfg)
     
-    # 安全获取 device 属性 (ReinforceAgent 可能直接存了 device)
+    # 安全获取 device 属性
     device = getattr(agent, "device", "unknown")
     print(f"[Info] Using device: {device}")
     
@@ -160,8 +166,10 @@ def evaluate(model_path: str | None = None,
         agent = DQNSolver(obs_dim, act_dim, cfg=DQNConfig())
     elif algorithm.lower() == "a2c":
         agent = A2CAgent(obs_dim, act_dim, cfg=A2CConfig())
-    elif algorithm.lower() == "reinforce": # <--- [新增] REINFORCE
+    elif algorithm.lower() == "reinforce":
         agent = ReinforceAgent(obs_dim, act_dim, cfg=ReinforceConfig())
+    elif algorithm.lower() == "ppo": # <--- [新增] PPO
+        agent = PPOAgent(obs_dim, act_dim, cfg=PPOConfig())
     else:
         raise ValueError(f"Unknown algorithm: {algorithm}")
     
@@ -199,8 +207,8 @@ if __name__ == "__main__":
     
     # 基础参数
     parser.add_argument("--mode", type=str, default="train", choices=["train", "eval"], help="Run mode")
-    # [修改] choices 加入 reinforce
-    parser.add_argument("--algo", type=str, default="dqn", choices=["dqn", "a2c", "reinforce"], help="Algorithm")
+    # [修改] choices 加入 ppo
+    parser.add_argument("--algo", type=str, default="dqn", choices=["dqn", "a2c", "reinforce", "ppo"], help="Algorithm")
     parser.add_argument("--episodes", type=int, default=200, help="Training episodes")
     
     # 关键超参数 (默认值为 None，表示使用 Config 文件中的默认值)
@@ -214,6 +222,7 @@ if __name__ == "__main__":
     if args.mode == "train":
         print(f"--- Starting Training ({args.algo.upper()}) ---")
         train(num_episodes=args.episodes, terminal_penalty=True, algorithm=args.algo, args=args)
+        
     else:
         print(f"--- Starting Evaluation ({args.algo.upper()}) ---")
         evaluate(algorithm=args.algo, episodes=10, render=True, fps=60)
