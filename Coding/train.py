@@ -1,131 +1,57 @@
-"""
+""" "
 CartPole Training & Evaluation (PyTorch + Gymnasium)
 ---------------------------------------------------
-- Trains a DQN/A2C/REINFORCE/PPO agent and logs scores via ScoreLogger (PNG + CSV)
-- Supports command line arguments for hyperparameter tuning.
+- Trains a DQN agent and logs scores via ScoreLogger (PNG + CSV)
+- Saves model to ./models/cartpole_dqn.torch
+- Evaluates from a saved model (render optional)
+
+Student reading map:
+  1) train(): env loop → agent.act() → env.step() → agent.step() [Encapsulated]
+  2) evaluate(): loads saved model and runs agent.act(evaluation_mode=True)
 """
 
 from __future__ import annotations
 import os
-
-# 解决 OpenMP 冲突报错
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-
-import argparse
 import time
 import numpy as np
 import gymnasium as gym
 import torch
 
-# 导入你的 Agent 和 Config
 from agents.cartpole_dqn import DQNSolver, DQNConfig
-from agents.a2c_agent import A2CAgent, A2CConfig
-<<<<<<< HEAD
-from agents.reinforce_agent import (
-    ReinforceAgent,
-    ReinforceConfig,
-)  # <--- [新增] 导入 REINFORCE
-=======
-from agents.reinforce_agent import ReinforceAgent, ReinforceConfig
-from agents.ppo_agent import PPOAgent, PPOConfig  # <--- [新增] 导入 PPO
->>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
 from scores.score_logger import ScoreLogger
 
 ENV_NAME = "CartPole-v1"
 MODEL_DIR = "models"
+MODEL_PATH = os.path.join(MODEL_DIR, "cartpole_dqn.torch")
 
 
-def apply_overrides(cfg, args):
+def train(num_episodes: int = 200, terminal_penalty: bool = True) -> DQNSolver:
     """
-    辅助函数：将命令行参数 args 中的值覆盖到 cfg 配置对象中
-    """
-    if args.lr is not None:
-        cfg.lr = args.lr
-        print(f"[Override] Learning Rate -> {cfg.lr}")
-
-    if args.gamma is not None:
-        cfg.gamma = args.gamma
-        print(f"[Override] Gamma -> {cfg.gamma}")
-
-    # 如果 Config 里有 batch_size 且命令行也传了，则覆盖
-    if args.batch_size is not None and hasattr(cfg, "batch_size"):
-        cfg.batch_size = args.batch_size
-        print(f"[Override] Batch Size -> {cfg.batch_size}")
-<<<<<<< HEAD
-
-    # 特殊处理：A2C/REINFORCE 的 entropy
-    if args.entropy is not None and hasattr(cfg, "entropy_beta"):
-=======
-        
-    # 特殊处理：A2C/REINFORCE/PPO 的 entropy
-    if args.entropy is not None and hasattr(cfg, 'entropy_beta'):
->>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
-        cfg.entropy_beta = args.entropy
-        print(f"[Override] Entropy Beta -> {cfg.entropy_beta}")
-
-    return cfg
-
-
-def train(
-    num_episodes: int = 200,
-    terminal_penalty: bool = True,
-    algorithm: str = "dqn",
-    args=None,
-) -> object:
-    """
-    Main training loop.
-    args: 命令行解析出来的参数对象，用于覆盖默认超参数
+    Main training loop:
+      - Creates the environment and agent
+      - For each episode:
+          * Reset env → get initial state
+          * Loop: select action, step environment, call agent.step()
+          * Log episode score with ScoreLogger
+      - Saves the trained model to disk
     """
     os.makedirs(MODEL_DIR, exist_ok=True)
 
-    # 构造模型保存路径 (加上算法名，防止覆盖)
-    model_path = os.path.join(MODEL_DIR, f"cartpole_{algorithm}.torch")
-
-    # Create CartPole environment
+    # Create CartPole environment (no render during training for speed)
     env = gym.make(ENV_NAME)
     logger = ScoreLogger(ENV_NAME)
 
+    # Infer observation/action dimensions from the env spaces
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.n
 
-    # --- 实例化 Agent 并应用参数覆盖 ---
-    if algorithm.lower() == "a2c":
-        print(f"[Info] Training with A2C Agent...")
-        cfg = A2CConfig()
-        cfg = apply_overrides(cfg, args)  # 覆盖参数
-        agent = A2CAgent(obs_dim, act_dim, cfg=cfg)
-    elif algorithm.lower() == "reinforce":
-        print(f"[Info] Training with REINFORCE Agent...")
-        cfg = ReinforceConfig()
-        cfg = apply_overrides(cfg, args)
-        agent = ReinforceAgent(obs_dim, act_dim, cfg=cfg)
-    elif algorithm.lower() == "ppo": # <--- [新增] PPO 分支
-        print(f"[Info] Training with PPO Agent...")
-        cfg = PPOConfig()
-        cfg = apply_overrides(cfg, args)
-        agent = PPOAgent(obs_dim, act_dim, cfg=cfg)
-    else:
-        print(f"[Info] Training with DQN Agent...")
-        cfg = DQNConfig()
-        cfg = apply_overrides(cfg, args)  # 覆盖参数
-        agent = DQNSolver(obs_dim, act_dim, cfg=cfg)
-<<<<<<< HEAD
-
-    # 安全获取 device 属性 (ReinforceAgent 可能直接存了 device)
-=======
-    
-    # 安全获取 device 属性
->>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
-    device = getattr(agent, "device", "unknown")
-    print(f"[Info] Using device: {device}")
-
-    # 打印超参数 (兼容不同 Config 结构)
-    lr = getattr(agent.cfg, "lr", "N/A")
-    gamma = getattr(agent.cfg, "gamma", "N/A")
-    print(f"[Info] Hyperparameters: LR={lr}, Gamma={gamma}")
+    # Construct agent with default config (students can swap configs here)
+    agent = DQNSolver(obs_dim, act_dim, cfg=DQNConfig())
+    print(f"[Info] Using device: {agent.device}")
 
     # Episode loop
     for run in range(1, num_episodes + 1):
+        # Gymnasium reset returns (obs, info). Seed for repeatability.
         state, info = env.reset(seed=run)
         state = np.reshape(state, (1, obs_dim))
         steps = 0
@@ -133,36 +59,40 @@ def train(
         while True:
             steps += 1
 
-            # 1. Action
+            # 1. ε-greedy action from the agent (training mode)
+            #    state shape is [1, obs_dim]
             action = agent.act(state)
 
-            # 2. Step
+            # 2. Gymnasium step returns: obs', reward, terminated, truncated, info
             next_state_raw, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
 
+            # 3. Optional small terminal penalty (encourage agent to avoid failure)
             if terminal_penalty and done:
                 reward = -1.0
 
+            # 4. Reshape next_state for agent and next loop iteration
             next_state = np.reshape(next_state_raw, (1, obs_dim))
 
-            # 3. Learning Step
+            # 5. Give (s, a, r, s', done) to the agent, which handles
+            #    remembering and learning internally.
             agent.step(state, action, reward, next_state, done)
 
+            # 6. Move to next state
             state = next_state
 
+            # 7. Episode end: log and break
             if done:
-                # 兼容不同 Agent 的日志打印
-                eps_info = ""
-                if hasattr(agent, "exploration_rate"):
-                    eps_info = f", Epsilon: {agent.exploration_rate:.3f}"
-
-                print(f"Run: {run}{eps_info}, Score: {steps}")
-                logger.add_score(steps, run)
+                print(
+                    f"Run: {run}, Epsilon: {agent.exploration_rate:.3f}, Score: {steps}"
+                )
+                logger.add_score(steps, run)  # writes CSV + updates score PNG
                 break
 
     env.close()
-    agent.save(model_path)
-    print(f"[Train] Model saved to {model_path}")
+    # Persist the trained model
+    agent.save(MODEL_PATH)
+    print(f"[Train] Model saved to {MODEL_PATH}")
     return agent
 
 
@@ -173,42 +103,50 @@ def evaluate(
     render: bool = True,
     fps: int = 60,
 ):
+    """
+    Evaluate a trained agent in the environment using greedy policy (no ε).
+    - Loads weights from disk
+    - Optionally renders (pygame window)
+    - Reports per-episode steps and average
 
-    # 自动推断路径
+    Args:
+        model_path: If None, auto-pick the first .torch file under ./models
+        algorithm: Reserved hook if you later support PPO/A2C agents
+        episodes: Number of evaluation episodes
+        render: Whether to show a window; set False for headless CI
+        fps: Target frame-rate during render (sleep-based pacing)
+    """
+    # Resolve model path
+    model_dir = MODEL_DIR
     if model_path is None:
-        model_path = os.path.join(MODEL_DIR, f"cartpole_{algorithm}.torch")
+        candidates = [f for f in os.listdir(model_dir) if f.endswith(".torch")]
+        if not candidates:
+            raise FileNotFoundError(
+                f"No saved model found in '{model_dir}/'. Please train first."
+            )
+        model_path = os.path.join(model_dir, candidates[0])
+        print(f"[Eval] Using detected model: {model_path}")
+    else:
+        print(f"[Eval] Using provided model: {model_path}")
 
-    if not os.path.exists(model_path):
-        print(f"[Error] Model not found at {model_path}. Train it first!")
-        return
-
-    print(f"[Eval] Using model: {model_path}")
-
+    # Create env for evaluation; 'human' enables pygame-based rendering
     render_mode = "human" if render else None
     env = gym.make(ENV_NAME, render_mode=render_mode)
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.n
 
-    # --- [修改] 增加 Agent 实例化逻辑 ---
+    # (If you add PPO/A2C later, pick their agent classes by 'algorithm' here.)
     if algorithm.lower() == "dqn":
         agent = DQNSolver(obs_dim, act_dim, cfg=DQNConfig())
-    elif algorithm.lower() == "a2c":
-        agent = A2CAgent(obs_dim, act_dim, cfg=A2CConfig())
-<<<<<<< HEAD
-    elif algorithm.lower() == "reinforce":  # <--- [新增] REINFORCE
-=======
-    elif algorithm.lower() == "reinforce":
->>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
-        agent = ReinforceAgent(obs_dim, act_dim, cfg=ReinforceConfig())
-    elif algorithm.lower() == "ppo": # <--- [新增] PPO
-        agent = PPOAgent(obs_dim, act_dim, cfg=PPOConfig())
     else:
-        raise ValueError(f"Unknown algorithm: {algorithm}")
+        raise ValueError(...)
 
+    # Load trained weights
     agent.load(model_path)
-    print(f"[Eval] Loaded {algorithm.upper()} model.")
+    print(f"[Eval] Loaded {algorithm.upper()} model from: {model_path}")
 
     scores = []
+    # Sleep interval to approximate fps; set 0 for fastest evaluation
     dt = (1.0 / fps) if render and fps else 0.0
 
     for ep in range(1, episodes + 1):
@@ -218,11 +156,16 @@ def evaluate(
         steps = 0
 
         while not done:
+            # Greedy action (no exploration) by calling act() in evaluation mode
             action = agent.act(state, evaluation_mode=True)
+
+            # Step env forward
             next_state, _, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
             state = np.reshape(next_state, (1, obs_dim))
             steps += 1
+
+            # Slow down rendering to be watchable
             if dt > 0:
                 time.sleep(dt)
 
@@ -230,61 +173,18 @@ def evaluate(
         print(f"[Eval] Episode {ep}: steps={steps}")
 
     env.close()
-    avg = float(np.mean(scores))
+    avg = float(np.mean(scores)) if scores else 0.0
     print(f"[Eval] Average over {episodes} episodes: {avg:.2f}")
     return scores
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="RL Parameter Tuning")
-
-    # 基础参数
-<<<<<<< HEAD
-    parser.add_argument(
-        "--mode", type=str, default="train", choices=["train", "eval"], help="Run mode"
+    # Example: quick training then a short evaluation
+    agent = train(num_episodes=500, terminal_penalty=True)
+    evaluate(
+        model_path="models/cartpole_dqn.torch",
+        algorithm="dqn",
+        episodes=100,
+        render=False,
+        fps=60,
     )
-    # [修改] choices 加入 reinforce
-    parser.add_argument(
-        "--algo",
-        type=str,
-        default="dqn",
-        choices=["dqn", "a2c", "reinforce"],
-        help="Algorithm",
-    )
-=======
-    parser.add_argument("--mode", type=str, default="train", choices=["train", "eval"], help="Run mode")
-    # [修改] choices 加入 ppo
-    parser.add_argument("--algo", type=str, default="dqn", choices=["dqn", "a2c", "reinforce", "ppo"], help="Algorithm")
->>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
-    parser.add_argument("--episodes", type=int, default=200, help="Training episodes")
-
-    # 关键超参数 (默认值为 None，表示使用 Config 文件中的默认值)
-    parser.add_argument("--lr", type=float, default=None, help="Learning Rate override")
-    parser.add_argument(
-        "--gamma", type=float, default=None, help="Gamma (Discount) override"
-    )
-    parser.add_argument(
-        "--batch_size", type=int, default=None, help="Batch size override"
-    )
-    parser.add_argument(
-        "--entropy", type=float, default=None, help="Entropy beta (A2C/PPO only)"
-    )
-
-    args = parser.parse_args()
-
-    if args.mode == "train":
-        print(f"--- Starting Training ({args.algo.upper()}) ---")
-<<<<<<< HEAD
-        train(
-            num_episodes=args.episodes,
-            terminal_penalty=True,
-            algorithm=args.algo,
-            args=args,
-        )
-=======
-        train(num_episodes=args.episodes, terminal_penalty=True, algorithm=args.algo, args=args)
-        
->>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
-    else:
-        print(f"--- Starting Evaluation ({args.algo.upper()}) ---")
-        evaluate(algorithm=args.algo, episodes=10, render=True, fps=60)

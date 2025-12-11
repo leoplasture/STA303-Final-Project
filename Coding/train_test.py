@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-""" "
-=======
 """
->>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
 CartPole Training & Evaluation (PyTorch + Gymnasium)
 ---------------------------------------------------
 - Trains a DQN/A2C/REINFORCE/PPO agent and logs scores via ScoreLogger (PNG + CSV)
@@ -120,12 +116,7 @@ def train(num_episodes: int = 200, terminal_penalty: bool = True, algorithm: str
 
             if terminal_penalty and done:
                 reward = -1.0
-<<<<<<< HEAD
-
-            # 4. Reshape next_state for agent and next loop iteration
-=======
             
->>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
             next_state = np.reshape(next_state_raw, (1, obs_dim))
 
             # 3. Learning Step
@@ -134,12 +125,6 @@ def train(num_episodes: int = 200, terminal_penalty: bool = True, algorithm: str
             state = next_state
 
             if done:
-<<<<<<< HEAD
-                print(
-                    f"Run: {run}, Epsilon: {agent.exploration_rate:.3f}, Score: {steps}"
-                )
-                logger.add_score(steps, run)  # writes CSV + updates score PNG
-=======
                 # 兼容不同 Agent 的日志打印
                 eps_info = ""
                 if hasattr(agent, "exploration_rate"):
@@ -147,7 +132,6 @@ def train(num_episodes: int = 200, terminal_penalty: bool = True, algorithm: str
                 
                 print(f"Run: {run}{eps_info}, Score: {steps}")
                 logger.add_score(steps, run)
->>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
                 break
 
     env.close()
@@ -156,40 +140,6 @@ def train(num_episodes: int = 200, terminal_penalty: bool = True, algorithm: str
     return agent
 
 
-<<<<<<< HEAD
-def evaluate(
-    model_path: str | None = None,
-    algorithm: str = "dqn",
-    episodes: int = 5,
-    render: bool = True,
-    fps: int = 60,
-):
-    """
-    Evaluate a trained agent in the environment using greedy policy (no ε).
-    - Loads weights from disk
-    - Optionally renders (pygame window)
-    - Reports per-episode steps and average
-
-    Args:
-        model_path: If None, auto-pick the first .torch file under ./models
-        algorithm: Reserved hook if you later support PPO/A2C agents
-        episodes: Number of evaluation episodes
-        render: Whether to show a window; set False for headless CI
-        fps: Target frame-rate during render (sleep-based pacing)
-    """
-    # Resolve model path
-    model_dir = MODEL_DIR
-    if model_path is None:
-        candidates = [f for f in os.listdir(model_dir) if f.endswith(".torch")]
-        if not candidates:
-            raise FileNotFoundError(
-                f"No saved model found in '{model_dir}/'. Please train first."
-            )
-        model_path = os.path.join(model_dir, candidates[0])
-        print(f"[Eval] Using detected model: {model_path}")
-    else:
-        print(f"[Eval] Using provided model: {model_path}")
-=======
 def evaluate(model_path: str | None = None,
              algorithm: str = "dqn",
              episodes: int = 5,
@@ -205,7 +155,6 @@ def evaluate(model_path: str | None = None,
         return
 
     print(f"[Eval] Using model: {model_path}")
->>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
 
     render_mode = "human" if render else None
     env = gym.make(ENV_NAME, render_mode=render_mode)
@@ -254,17 +203,6 @@ def evaluate(model_path: str | None = None,
 
 
 if __name__ == "__main__":
-<<<<<<< HEAD
-    # Example: quick training then a short evaluation
-    agent = train(num_episodes=500, terminal_penalty=True)
-    evaluate(
-        model_path="models/cartpole_dqn.torch",
-        algorithm="dqn",
-        episodes=100,
-        render=False,
-        fps=60,
-    )
-=======
     parser = argparse.ArgumentParser(description="RL Parameter Tuning")
     
     # 基础参数
@@ -288,4 +226,3 @@ if __name__ == "__main__":
     else:
         print(f"--- Starting Evaluation ({args.algo.upper()}) ---")
         evaluate(algorithm=args.algo, episodes=10, render=True, fps=60)
->>>>>>> 81063c1271c26d50cb2d7978bf054847c7b213af
