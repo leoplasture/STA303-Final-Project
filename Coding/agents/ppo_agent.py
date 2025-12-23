@@ -10,7 +10,7 @@ from dataclasses import dataclass
 # -----------------------------
 GAMMA = 0.99
 LR = 0.0005
-EPS_CLIP = 0.2
+EPS_CLIP = 0.1
 K_EPOCHS = 10
 BATCH_EPISODES = 4      # 改为：每收集 4 局游戏更新一次
 ENTROPY_BETA = 0.01

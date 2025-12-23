@@ -3,6 +3,7 @@ CartPole Training & Evaluation (PyTorch + Gymnasium)
 ---------------------------------------------------
 - Trains DQN/A2C/REINFORCE/PPO/BC agents and logs scores via ScoreLogger.
 - Supports command line arguments for algorithm switching and hyperparameter tuning.
+- [NEW] Logs training and evaluation metrics to CSV files.
 """
 
 from __future__ import annotations
@@ -15,17 +16,20 @@ import time
 import numpy as np
 import gymnasium as gym
 import torch
+import csv  # <--- [新增] 导入 CSV 库
+from datetime import datetime # <--- [新增] 用于给文件名加时间戳
 
 # Import Agents and Configs
 from agents.cartpole_dqn import DQNSolver, DQNConfig
 from agents.a2c_agent import A2CAgent, A2CConfig
 from agents.reinforce_agent import ReinforceAgent, ReinforceConfig
 from agents.ppo_agent import PPOAgent, PPOConfig
-from agents.bc_agent import BCAgent, BCConfig  # <--- [修复] 导入 BC
+from agents.bc_agent import BCAgent, BCConfig
 from scores.score_logger import ScoreLogger
 
 ENV_NAME = "CartPole-v1"
 MODEL_DIR = "models"
+LOG_DIR = "logs"  # <--- [新增] CSV 日志保存目录
 
 def apply_overrides(cfg, args):
     """Helper: Override config parameters with command line arguments."""
@@ -50,6 +54,8 @@ def apply_overrides(cfg, args):
 def train(num_episodes: int = 200, terminal_penalty: bool = True, algorithm: str = "dqn", args=None) -> object:
     """Main training loop."""
     os.makedirs(MODEL_DIR, exist_ok=True)
+    os.makedirs(LOG_DIR, exist_ok=True) # <--- [新增] 确保日志目录存在
+
     model_path = os.path.join(MODEL_DIR, f"cartpole_{algorithm}.torch")
 
     # Create CartPole environment
@@ -78,7 +84,7 @@ def train(num_episodes: int = 200, terminal_penalty: bool = True, algorithm: str
         cfg = apply_overrides(cfg, args)
         agent = PPOAgent(obs_dim, act_dim, cfg=cfg)
         
-    elif algorithm.lower() == "bc":  # <--- [修复] 加入 BC 分支逻辑
+    elif algorithm.lower() == "bc":
         print(f"[Info] Training with Behavior Cloning (BC) Agent...")
         cfg = BCConfig()
         cfg = apply_overrides(cfg, args)
@@ -108,41 +114,56 @@ def train(num_episodes: int = 200, terminal_penalty: bool = True, algorithm: str
     gamma = getattr(agent.cfg, "gamma", "N/A")
     print(f"[Info] Hyperparameters: LR={lr}, Gamma={gamma}")
 
+    # --- [新增] 初始化 CSV ---
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    csv_filename = os.path.join(LOG_DIR, f"train_{algorithm}_{timestamp}.csv")
+    csv_file = open(csv_filename, mode='w', newline='', encoding='utf-8')
+    csv_writer = csv.writer(csv_file)
+    # 写入表头
+    csv_writer.writerow(["Episode", "Score", "Epsilon"])
+    print(f"[Info] Logging training data to: {csv_filename}")
+
     # --- Main Training Loop ---
-    for run in range(1, num_episodes + 1):
-        state, info = env.reset(seed=run)
-        state = np.reshape(state, (1, obs_dim))
-        steps = 0
+    try:
+        for run in range(1, num_episodes + 1):
+            state, info = env.reset(seed=run)
+            state = np.reshape(state, (1, obs_dim))
+            steps = 0
 
-        while True:
-            steps += 1
-            
-            # 1. Select Action
-            action = agent.act(state)
-
-            # 2. Step Environment
-            next_state_raw, reward, terminated, truncated, info = env.step(action)
-            done = terminated or truncated
-
-            if terminal_penalty and done:
-                reward = -1.0
-            
-            next_state = np.reshape(next_state_raw, (1, obs_dim))
-
-            # 3. Agent Learn Step
-            agent.step(state, action, reward, next_state, done)
-
-            state = next_state
-
-            if done:
-                # Log progress
-                eps_info = ""
-                if hasattr(agent, "exploration_rate"):
-                    eps_info = f", Epsilon: {agent.exploration_rate:.3f}"
+            while True:
+                steps += 1
                 
-                print(f"Run: {run}{eps_info}, Score: {steps}")
-                logger.add_score(steps, run)
-                break
+                # 1. Select Action
+                action = agent.act(state)
+
+                # 2. Step Environment
+                next_state_raw, reward, terminated, truncated, info = env.step(action)
+                done = terminated or truncated
+
+                if terminal_penalty and done:
+                    reward = -1.0
+                
+                next_state = np.reshape(next_state_raw, (1, obs_dim))
+
+                # 3. Agent Learn Step
+                agent.step(state, action, reward, next_state, done)
+
+                state = next_state
+
+                if done:
+                    # Log progress
+                    epsilon_val = getattr(agent, "exploration_rate", None) # DQN 有 epsilon
+                    eps_info = f", Epsilon: {epsilon_val:.3f}" if epsilon_val is not None else ""
+                    
+                    print(f"Run: {run}{eps_info}, Score: {steps}")
+                    logger.add_score(steps, run)
+
+                    # --- [新增] 写入 CSV 一行数据 ---
+                    csv_writer.writerow([run, steps, f"{epsilon_val:.4f}" if epsilon_val is not None else "N/A"])
+                    break
+    finally:
+        # 确保无论是否报错都关闭文件
+        csv_file.close()
 
     env.close()
     agent.save(model_path)
@@ -165,6 +186,9 @@ def evaluate(model_path: str | None = None,
         return
 
     print(f"[Eval] Using model: {model_path}")
+    
+    # Ensure log dir exists
+    os.makedirs(LOG_DIR, exist_ok=True) # <--- [新增]
 
     # Setup environment
     render_mode = "human" if render else None
@@ -181,7 +205,7 @@ def evaluate(model_path: str | None = None,
         agent = ReinforceAgent(obs_dim, act_dim, cfg=ReinforceConfig())
     elif algorithm.lower() == "ppo":
         agent = PPOAgent(obs_dim, act_dim, cfg=PPOConfig())
-    elif algorithm.lower() == "bc":  # <--- [修复] 加入 BC 分支
+    elif algorithm.lower() == "bc":
         agent = BCAgent(obs_dim, act_dim, cfg=BCConfig())
     else:
         raise ValueError(f"Unknown algorithm: {algorithm}")
@@ -193,24 +217,36 @@ def evaluate(model_path: str | None = None,
     scores = []
     dt = (1.0 / fps) if render and fps else 0.0
 
-    # Evaluation Loop
-    for ep in range(1, episodes + 1):
-        state, _ = env.reset(seed=10_000 + ep)
-        state = np.reshape(state, (1, obs_dim))
-        done = False
-        steps = 0
+    # --- [新增] 初始化 CSV ---
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    csv_filename = os.path.join(LOG_DIR, f"eval_{algorithm}_{timestamp}.csv")
+    print(f"[Info] Logging evaluation data to: {csv_filename}")
 
-        while not done:
-            action = agent.act(state, evaluation_mode=True)
-            next_state, _, terminated, truncated, _ = env.step(action)
-            done = terminated or truncated
-            state = np.reshape(next_state, (1, obs_dim))
-            steps += 1
+    with open(csv_filename, mode='w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(["Episode", "Score"]) # 表头
+
+        # Evaluation Loop
+        for ep in range(1, episodes + 1):
+            state, _ = env.reset(seed=10_000 + ep)
+            state = np.reshape(state, (1, obs_dim))
+            done = False
+            steps = 0
+
+            while not done:
+                action = agent.act(state, evaluation_mode=True)
+                next_state, _, terminated, truncated, _ = env.step(action)
+                done = terminated or truncated
+                state = np.reshape(next_state, (1, obs_dim))
+                steps += 1
+                
+                if dt > 0: time.sleep(dt)
+
+            scores.append(steps)
+            print(f"[Eval] Episode {ep}: steps={steps}")
             
-            if dt > 0: time.sleep(dt)
-
-        scores.append(steps)
-        print(f"[Eval] Episode {ep}: steps={steps}")
+            # --- [新增] 写入数据 ---
+            writer.writerow([ep, steps])
 
     env.close()
     avg = float(np.mean(scores))

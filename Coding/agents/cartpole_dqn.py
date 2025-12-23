@@ -53,20 +53,20 @@ class QNet(nn.Module):
 
     def __init__(self, obs_dim: int, act_dim: int):
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(obs_dim, 64), 
-            nn.ReLU(),
-            nn.Linear(64, act_dim), 
-        )
+#       self.net = nn.Sequential(
+#            nn.Linear(obs_dim, 64), 
+      #      nn.ReLU(),
+       #     nn.Linear(64, act_dim), 
+        #)
         
         # original better NNet:
-        # self.net = nn.Sequential(
-        #     nn.Linear(obs_dim, 128),
-        #     nn.ReLU(),
-        #     nn.Linear(128, 128),
-        #     nn.ReLU(),
-        #     nn.Linear(128, act_dim),
-        # )
+        self.net = nn.Sequential(
+             nn.Linear(obs_dim, 128),
+             nn.ReLU(),
+             nn.Linear(128, 128),
+             nn.ReLU(),
+             nn.Linear(128, act_dim),
+         )
         
         for m in self.modules():
             if isinstance(m, nn.Linear):
